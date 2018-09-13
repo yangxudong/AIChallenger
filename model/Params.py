@@ -25,6 +25,9 @@ class Params(object):
             params = json.load(f)
             self.__dict__.update(params)
 
+    #def __getitem__(self, name):
+    #    return self.__dict__[name]
+
     @property
     def dict(self):
         """Gives dict-like access to Params instance by `params.dict['learning_rate']`"""

@@ -4,6 +4,7 @@ import pandas as pd
 from zhon import cedict
 from zhon import hanzi
 import string
+import csv
 import re
 import commands
 
@@ -51,9 +52,9 @@ def transform(char):
     return char.lower()
   if char in cedict.simplified:
     return char
-  if char == ".":
-    return char
-  if char.isspace() or char in hanzi.punctuation or char in string.punctuation:
+  if char == "." or char in hanzi.stops:
+    return "."
+  if char.isspace() or char in hanzi.non_stops or char in string.punctuation:
     return " "
   if char == u"、":
     return " "
@@ -70,11 +71,13 @@ def get_content(input_file, output_file):
   content = data.content.map(translate)
   content.to_csv(output_file, index=False, encoding='utf-8')
 
-def append_content_ws(input_file, ws_file, output_file):
+def append_content_ws(input_file, content_file, ws_file, output_file):
   data = pd.read_csv(input_file, encoding='utf-8')
+  data.drop(columns=['content'], inplace=True)
+  content = pd.read_csv(content_file, names=['content'], encoding='utf-8')
   content_ws = pd.read_csv(ws_file, names=['content_ws'], encoding='utf-8')
-  result = pd.concat([data, content_ws], axis=1)
-  result.to_csv(output_file, index=False, encoding='utf-8')
+  result = pd.concat([data, content, content_ws], axis=1)
+  result.to_csv(output_file, quoting=csv.QUOTE_NONNUMERIC, index=False, encoding='utf-8')
 
 if '__main__' == __name__:
   #load_stop_char("stop_char.txt")
@@ -90,6 +93,6 @@ if '__main__' == __name__:
   #commands.getoutput("./segment.sh data/train_content.txt > data/train_content_words.txt")
   #commands.getoutput("./segment.sh data/valid_content.txt > data/valid_content_words.txt")
 
-  #append_content_ws(test_file, 'data/test_content_words.txt', 'data/testa.csv')
-  append_content_ws(train_file, 'data/train_content_words.txt', 'data/train.csv')
-  append_content_ws(valid_file, 'data/valid_content_words.txt', 'data/valid.csv')
+  #append_content_ws(test_file, 'data/test_content.txt', 'data/test_content_words.txt', 'data/testa.csv')
+  append_content_ws(train_file, 'data/train_content.txt', 'data/train_content_words.txt', 'data/train.csv')
+  append_content_ws(valid_file, 'data/valid_content.txt', 'data/valid_content_words.txt', 'data/valid.csv')

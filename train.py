@@ -3,9 +3,9 @@
 """Train the model"""
 import os
 import tensorflow as tf
-from model import Params
-from model import TextCNN
-from model import input_fn
+from model.Params import Params
+from model.TextCNN import TextCNN
+from model.input_fn import input_fn
 
 flags = tf.app.flags
 flags.DEFINE_string("data_dir", "data", "Directory containing the dataset.")
@@ -27,16 +27,19 @@ def main(unused_argv):
   path_train = os.path.join(FLAGS.data_dir, 'train.csv')
   path_eval = os.path.join(FLAGS.data_dir, 'valid.csv')
   path_test = os.path.join(FLAGS.data_dir, 'testa.csv')
+  print("train set:", path_train)
+  print("valid set:", path_eval)
+  print("test set:", path_test)
 
   config = tf.estimator.RunConfig(model_dir=FLAGS.model_dir, save_checkpoints_steps=FLAGS.save_checkpoints_steps)
   if params.model == "TextCNN":
     estimator = TextCNN(params, model_dir=FLAGS.model_dir, config=config)
     train_spec = tf.estimator.TrainSpec(
-      input_fn=lambda: input_fn(path_train, path_words, params.batch_size, params.shuffle_buffer_size, params.num_oov_buckets),
+      input_fn=lambda: input_fn(path_train, path_words, params, params.shuffle_buffer_size),
       max_steps=FLAGS.train_steps
     )
     eval_spec = tf.estimator.EvalSpec(
-      input_fn=lambda: input_fn(path_eval, path_words, params.batch_size, 0, params.num_oov_buckets),
+      input_fn=lambda: input_fn(path_eval, path_words, params, 0),
       throttle_secs=300
     )
     print("before train and evaluate")
@@ -47,6 +50,7 @@ def main(unused_argv):
 
 
 if __name__ == '__main__':
+  os.environ["CUDA_VISIBLE_DEVICES"] = ""
   if "CUDA_VISIBLE_DEVICES" in os.environ:
     print("CUDA_VISIBLE_DEVICES:", os.environ["CUDA_VISIBLE_DEVICES"])
   tf.logging.set_verbosity(tf.logging.INFO)
