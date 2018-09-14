@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """Train the model"""
 import os
+import pandas as pd
 import tensorflow as tf
 from model.Params import Params
 from model.TextCNN import TextCNN
@@ -12,6 +13,8 @@ flags.DEFINE_string("data_dir", "data", "Directory containing the dataset.")
 flags.DEFINE_string("model_dir", "experiments/TextCNN", "Base directory for the model.")
 flags.DEFINE_integer("save_checkpoints_steps", 2000, "Save checkpoints every this many steps")
 flags.DEFINE_integer("train_steps", 10000, "Number of (global) training steps to perform")
+flags.DEFINE_bool("train", True, "Whether to train and evaluation")
+flags.DEFINE_bool("predict", True, "Whether to predict")
 FLAGS = flags.FLAGS
 
 def main(unused_argv):
@@ -34,19 +37,22 @@ def main(unused_argv):
   config = tf.estimator.RunConfig(model_dir=FLAGS.model_dir, save_checkpoints_steps=FLAGS.save_checkpoints_steps)
   if params.model == "TextCNN":
     estimator = TextCNN(params, model_dir=FLAGS.model_dir, config=config)
-    train_spec = tf.estimator.TrainSpec(
-      input_fn=lambda: input_fn(path_train, path_words, params, params.shuffle_buffer_size),
-      max_steps=FLAGS.train_steps
-    )
-    eval_spec = tf.estimator.EvalSpec(
-      input_fn=lambda: input_fn(path_eval, path_words, params, 0),
-      throttle_secs=300
-    )
-    print("before train and evaluate")
-    tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
-    print("after train and evaluate")
-    #test_input_fn = lambda: input_fn(path_test, path_words, params.batch_size, 0, params.num_oov_buckets)
-    #predictions = estimator.predict(test_input_fn)
+    if FLAGS.train:
+     train_spec = tf.estimator.TrainSpec(
+       input_fn=lambda: input_fn(path_train, path_words, params, params.shuffle_buffer_size),
+       max_steps=FLAGS.train_steps
+     )
+     eval_spec = tf.estimator.EvalSpec(
+       input_fn=lambda: input_fn(path_eval, path_words, params, 0),
+       throttle_secs=300
+     )
+     print("before train and evaluate")
+     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
+     print("after train and evaluate")
+    if FLAGS.predict:
+      test_input_fn = lambda: input_fn(path_test, path_words, params.batch_size, 0, params.num_oov_buckets)
+      predictions = estimator.predict(test_input_fn)
+      print(type(predictions))
 
 
 if __name__ == '__main__':
