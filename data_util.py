@@ -76,7 +76,7 @@ def append_content_ws(input_file, content_file, ws_file, output_file):
   data.drop(columns=['content'], inplace=True)
   content = pd.read_csv(content_file, names=['content'], encoding='utf-8')
   content_ws = pd.read_csv(ws_file, names=['content_ws'], encoding='utf-8')
-  result = pd.concat([data, content, content_ws], axis=1)
+  result = pd.concat([content, data, content_ws], axis=1)
   result.to_csv(output_file, quoting=csv.QUOTE_NONNUMERIC, index=False, encoding='utf-8')
 
 if '__main__' == __name__:
@@ -89,10 +89,10 @@ if '__main__' == __name__:
   #get_content(train_file, 'data/train_content.txt')
   #get_content(valid_file, 'data/valid_content.txt')
 
-  #commands.getoutput("./segment.sh data/test_content.txt > data/test_content_words.txt")
-  #commands.getoutput("./segment.sh data/train_content.txt > data/train_content_words.txt")
-  #commands.getoutput("./segment.sh data/valid_content.txt > data/valid_content_words.txt")
+  commands.getoutput("./segment.sh data/test_content.txt > data/test_content_words.txt")
+  commands.getoutput("./segment.sh data/train_content.txt > data/train_content_words.txt")
+  commands.getoutput("./segment.sh data/valid_content.txt > data/valid_content_words.txt")
 
-  #append_content_ws(test_file, 'data/test_content.txt', 'data/test_content_words.txt', 'data/testa.csv')
+  append_content_ws(test_file, 'data/test_content.txt', 'data/test_content_words.txt', 'data/testa.csv')
   append_content_ws(train_file, 'data/train_content.txt', 'data/train_content_words.txt', 'data/train.csv')
   append_content_ws(valid_file, 'data/valid_content.txt', 'data/valid_content_words.txt', 'data/valid.csv')

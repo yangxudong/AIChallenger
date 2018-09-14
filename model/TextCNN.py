@@ -6,7 +6,6 @@ class TextCNN(tf.estimator.Estimator):
     self.optimizer = optimizers.get_optimizer_instance(optimizer, params.learning_rate)
     def _model_fn(features, labels, mode, config):
       sentence = features['content']
-      sentence_len = sentence.get_shape().as_list()[1]
       # Get word embeddings for each token in the sentence
       embeddings = tf.get_variable(name="embeddings", dtype=tf.float32,
                                    shape=[params.vocab_size, params.embedding_size])
@@ -25,7 +24,7 @@ class TextCNN(tf.estimator.Estimator):
           activation=tf.nn.relu)
         pool = tf.layers.max_pooling2d(
           conv,
-          pool_size=[sentence_len - filter_size + 1, 1],
+          pool_size=[params.sentence_max_len - filter_size + 1, 1],
           strides=(1, 1),
           padding="VALID")
         pooled_outputs.append(pool)
