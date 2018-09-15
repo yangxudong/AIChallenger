@@ -1,13 +1,14 @@
 {
-  "model": "TextCNN",
-  "hidden_units": [256, 128],
+  "model": "TextCNN_v2",
+  "hidden_units": [256, 256],
+  "task_hidden_units": [],
   "embedding_size": 100,
   "filter_sizes": [3, 4, 5, 6],
-  "num_filters": 100,
+  "num_filters": 128,
   "num_classes": 4,
   "learning_rate": 0.005,
-  "batch_size": 64,
-  "sentence_max_len": 700,
+  "batch_size": 256,
+  "sentence_max_len": 750,
   "dropout_rate": 0.3,
-  "shuffle_buffer_size": 10000
+  "shuffle_buffer_size": 5120
 }

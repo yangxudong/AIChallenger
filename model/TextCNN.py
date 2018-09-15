@@ -4,8 +4,17 @@ from tensorflow.python.estimator.canned import optimizers
 class TextCNN(tf.estimator.Estimator):
   def __init__(self, params, model_dir=None, config=None, optimizer='Adagrad', warm_start_from=None):
     self.optimizer = optimizers.get_optimizer_instance(optimizer, params.learning_rate)
+
+    def _build_fully_connect_layers(net, hidden_units, dropout_rate, mode):
+      # Build the hidden layers, sized according to the 'hidden_units' param.
+      for units in hidden_units:
+        net = tf.layers.dense(net, units=units, activation=tf.nn.relu)
+        if dropout_rate > 0.0:
+          net = tf.layers.dropout(net, dropout_rate, training=(mode == tf.estimator.ModeKeys.TRAIN))
+      return net
+
     def _model_fn(features, labels, mode, config):
-      sentence = features['content']
+      sentence = features.pop('content')
       # Get word embeddings for each token in the sentence
       embeddings = tf.get_variable(name="embeddings", dtype=tf.float32,
                                    shape=[params.vocab_size, params.embedding_size])
@@ -30,25 +39,30 @@ class TextCNN(tf.estimator.Estimator):
         pooled_outputs.append(pool)
       h_pool = tf.concat(pooled_outputs, 3)  # shape: (batch, 1, len(filter_size) * embedding_size, 1)
       net = tf.reshape(h_pool, [-1, params.num_filters * len(params.filter_sizes)])  # shape: (batch, len(filter_size) * embedding_size)
-      # Build the hidden layers, sized according to the 'hidden_units' param.
-      for units in params.hidden_units:
-        net = tf.layers.dense(net, units=units, activation=tf.nn.relu)
-        if params.dropout_rate > 0.0:
-          net = tf.layers.dropout(net, params.dropout_rate, training=(mode == tf.estimator.ModeKeys.TRAIN))
+      net = _build_fully_connect_layers(net, params.hidden_units, params.dropout_rate, mode)
+
+      predictions = {"id": features.pop("id"), "content": tf.constant([""], dtype=tf.string)}
       metrics = {}
-      predictions = {}
       loss = 0
-      for k, v in labels.iteritems():
-        one_logits = tf.layers.dense(net, params.num_classes, activation=None)
+      for k, v in features.iteritems():
+        net = _build_fully_connect_layers(net, params.task_hidden_units, params.dropout_rate, mode)
+        one_logits = tf.layers.dense(net, params.num_classes, activation=None, name=k)
+        predict_classes = tf.argmax(one_logits, 1)
+        predictions[k] = predict_classes - 2
+        if mode == tf.estimator.ModeKeys.PREDICT:
+          continue
         loss += tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=one_logits, labels=v), name=k+"_loss")
-        predictions[k] = tf.argmax(one_logits, 1)
         acc_key = k + "_accuracy"
-        metrics[acc_key] = tf.metrics.accuracy(labels=v, predictions=predictions[k])
+        metrics[acc_key] = tf.metrics.accuracy(labels=v, predictions=predict_classes)
         tf.summary.scalar(acc_key, metrics[acc_key][1])
+
       if mode == tf.estimator.ModeKeys.PREDICT:
-        return tf.estimator.EstimatorSpec(mode, predictions=predictions)
+        export_outputs = { 'prediction': tf.estimator.export.PredictOutput(predictions) }
+        return tf.estimator.EstimatorSpec(mode, predictions=predictions, export_outputs=export_outputs)
+
       if mode == tf.estimator.ModeKeys.EVAL:
         return tf.estimator.EstimatorSpec(mode, loss=loss, eval_metric_ops=metrics)
+
       assert mode == tf.estimator.ModeKeys.TRAIN
       train_op = self.optimizer.minimize(loss, global_step=tf.train.get_global_step())
       return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)

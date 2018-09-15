@@ -59,7 +59,7 @@ if __name__ == '__main__':
     words = Counter()
     size_train_sentences = update_vocab(os.path.join(args.data_dir, 'train_content_words.txt'), words)
     size_dev_sentences = update_vocab(os.path.join(args.data_dir, 'valid_content_words.txt'), words)
-    size_test_sentences = update_vocab(os.path.join(args.data_dir, 'test_content_words.txt'), words)
+    #size_test_sentences = update_vocab(os.path.join(args.data_dir, 'test_content_words.txt'), words)
     print("- done.")
 
     # Only keep most frequent tokens
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     sizes = {
         'train_size': size_train_sentences,
         'valid_size': size_dev_sentences,
-        'test_size': size_test_sentences,
+    #    'test_size': size_test_sentences,
         'vocab_size': len(words) + NUM_OOV_BUCKETS,
         'pad_word': PAD_WORD,
         'num_oov_buckets': NUM_OOV_BUCKETS

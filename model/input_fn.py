@@ -19,10 +19,15 @@ def parse_line(line, vocab, max_len):
   content_length = tf.size(content_words)
   content_words = tf.slice(content_words, [0], [tf.minimum(content_length, max_len)])
   content_ids = vocab.lookup(content_words)
-  sample_id = features.pop("id")
-  features.pop("content")
-  labels = {k: v + 2 for k, v in features.iteritems()}
-  return {"content":content_ids, "id":sample_id}, labels
+  #sample_id = features.pop("id")
+  #features.pop("content")
+  features["content"] = content_ids
+  ignore_columns = set(["content", "id"])
+  for k in features.keys():
+    if k in ignore_columns: continue
+    features[k] = features[k] + 2
+  #labels = {k: v + 2 for k, v in features.iteritems() if k not in ignore_columns}
+  return features, features["id"]
 
 
 def input_fn(path_csv, path_vocab, params, shuffle_buffer_size):
@@ -42,12 +47,14 @@ def input_fn(path_csv, path_vocab, params, shuffle_buffer_size):
   if shuffle_buffer_size > 0:
     dataset = dataset.shuffle(shuffle_buffer_size).repeat()
   # Create batches and pad the sentences of different length
-  ignore_columns = set(["id", "content", "content_ws"])
-  label_shapes = {k:tf.TensorShape([]) for k in _CSV_COLUMNS if not k in ignore_columns}
-  label_pad_values = {k:-2 for k in _CSV_COLUMNS if not k in ignore_columns}
-  padded_shapes = ({"content": tf.TensorShape([params.sentence_max_len]), "id": tf.TensorShape([])}, label_shapes)
-  padding_values = ({"content": params.id_pad_word, "id": 0}, label_pad_values)
+  ignore_columns = set(["content", "content_ws"])
+  feature_shapes = {k:tf.TensorShape([]) for k in _CSV_COLUMNS if not k in ignore_columns}
+  feature_shapes["content"] = tf.TensorShape([params.sentence_max_len])
+  pad_values = {k:-2 for k in _CSV_COLUMNS if not k in ignore_columns}
+  pad_values["content"] = params.id_pad_word
+  padded_shapes = (feature_shapes, [])
+  padding_values = (pad_values, 0)
   dataset = dataset.padded_batch(params.batch_size, padded_shapes, padding_values).prefetch(1)
-  print(dataset.output_types)
-  print(dataset.output_shapes)
+  #print(dataset.output_types)
+  #print(dataset.output_shapes)
   return dataset
