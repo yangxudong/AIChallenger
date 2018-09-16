@@ -25,8 +25,11 @@ class Params(object):
             params = json.load(f)
             self.__dict__.update(params)
 
-    #def __getitem__(self, name):
-    #    return self.__dict__[name]
+    def __getitem__(self, name):
+        return self.__dict__.get(name)
+
+    def __contains__(self, name):
+        return self.__dict__.__contains__(name)
 
     @property
     def dict(self):

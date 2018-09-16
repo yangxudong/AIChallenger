@@ -3,6 +3,7 @@ from tensorflow.python.estimator.canned import optimizers
 
 class TextCNN(tf.estimator.Estimator):
   def __init__(self, params, model_dir=None, config=None, optimizer='Adagrad', warm_start_from=None):
+    if not optimizer: optimizer = 'Adagrad'
     self.optimizer = optimizers.get_optimizer_instance(optimizer, params.learning_rate)
 
     def _build_fully_connect_layers(net, hidden_units, dropout_rate, mode):
@@ -39,13 +40,13 @@ class TextCNN(tf.estimator.Estimator):
         pooled_outputs.append(pool)
       h_pool = tf.concat(pooled_outputs, 3)  # shape: (batch, 1, len(filter_size) * embedding_size, 1)
       net = tf.reshape(h_pool, [-1, params.num_filters * len(params.filter_sizes)])  # shape: (batch, len(filter_size) * embedding_size)
-      net = _build_fully_connect_layers(net, params.hidden_units, params.dropout_rate, mode)
+      net = _build_fully_connect_layers(net, params.hidden_units, params.dropout_rate if "dropout_rate" in params else 0.0, mode)
 
       predictions = {"id": features.pop("id"), "content": tf.constant([""], dtype=tf.string)}
       metrics = {}
       loss = 0
       for k, v in features.iteritems():
-        net = _build_fully_connect_layers(net, params.task_hidden_units, params.dropout_rate, mode)
+        net = _build_fully_connect_layers(net, params.task_hidden_units, params.dropout_rate if "dropout_rate" in params else 0.0, mode)
         one_logits = tf.layers.dense(net, params.num_classes, activation=None, name=k)
         predict_classes = tf.argmax(one_logits, 1)
         predictions[k] = predict_classes - 2
