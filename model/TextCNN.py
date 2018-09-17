@@ -46,7 +46,8 @@ class TextCNN(tf.estimator.Estimator):
       metrics = {}
       loss = 0
       for k, v in features.iteritems():
-        net = _build_fully_connect_layers(net, params.task_hidden_units, params.dropout_rate if "dropout_rate" in params else 0.0, mode)
+        with tf.variable_scope(k):
+          net = _build_fully_connect_layers(net, params.task_hidden_units, params.dropout_rate if "dropout_rate" in params else 0.0, mode)
         one_logits = tf.layers.dense(net, params.num_classes, activation=None, name=k)
         predict_classes = tf.argmax(one_logits, 1)
         predictions[k] = predict_classes - 2

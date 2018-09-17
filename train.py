@@ -13,7 +13,6 @@ flags.DEFINE_string("data_dir", "data", "Directory containing the dataset.")
 flags.DEFINE_string("model_dir", "experiments/TextCNN", "Base directory for the model.")
 flags.DEFINE_string("gpu_id", "0", "which gpu to use.")
 flags.DEFINE_integer("save_checkpoints_steps", 3000, "Save checkpoints every this many steps")
-flags.DEFINE_integer("train_steps", 100000, "Number of (global) training steps to perform")
 flags.DEFINE_bool("train", True, "Whether to train and evaluation")
 flags.DEFINE_bool("predict", True, "Whether to predict")
 FLAGS = flags.FLAGS
@@ -50,7 +49,7 @@ def main(unused_argv):
   if FLAGS.train:
     train_spec = tf.estimator.TrainSpec(
       input_fn=lambda: input_fn(path_train, path_words, params, params.shuffle_buffer_size),
-      max_steps=FLAGS.train_steps
+      max_steps=params.train_steps
     )
     eval_spec = tf.estimator.EvalSpec(
       input_fn=lambda: input_fn(path_eval, path_words, params, 0),
