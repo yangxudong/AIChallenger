@@ -1,4 +1,5 @@
 import tensorflow as tf
+from tensorboard import summary as summary_lib
 from tensorflow.python.estimator.canned import optimizers
 
 class TextCNN(tf.estimator.Estimator):
@@ -13,6 +14,25 @@ class TextCNN(tf.estimator.Estimator):
         if dropout_rate > 0.0:
           net = tf.layers.dropout(net, dropout_rate, training=(mode == tf.estimator.ModeKeys.TRAIN))
       return net
+
+    def _get_f1_score_metric(labels, predictions, num_classes):
+      ops = []
+      f1_score = 0
+      for i in range(num_classes):
+        f1, precision, recall = _get_f1_score(labels, predictions, i)
+        ops.append(precision)
+        ops.append(recall)
+        f1_score += f1
+      f1_score /= num_classes
+      return f1_score, tf.group(ops)
+
+    def _get_f1_score(labels, predictions, n_class):
+      pred = tf.equal(predictions, n_class)
+      label = tf.equal(labels, n_class)
+      precision = tf.metrics.precision(label, pred)
+      recall = tf.metrics.recall(label, pred)
+      f1_score = 2 * precision[0] * recall[0] / (precision[0] + recall[0] + 1e-5)
+      return f1_score, precision, recall
 
     def _model_fn(features, labels, mode, config):
       sentence = features.pop('content')
@@ -39,30 +59,39 @@ class TextCNN(tf.estimator.Estimator):
           padding="VALID")
         pooled_outputs.append(pool)
       h_pool = tf.concat(pooled_outputs, 3)  # shape: (batch, 1, len(filter_size) * embedding_size, 1)
-      net = tf.reshape(h_pool, [-1, params.num_filters * len(params.filter_sizes)])  # shape: (batch, len(filter_size) * embedding_size)
-      net = _build_fully_connect_layers(net, params.hidden_units, params.dropout_rate if "dropout_rate" in params else 0.0, mode)
-
+      h_pool_flat = tf.reshape(h_pool, [-1, params.num_filters * len(params.filter_sizes)])  # shape: (batch, len(filter_size) * embedding_size)
+      dropout_rate = params.dropout_rate if "dropout_rate" in params else 0.0
+      last_common_layer = _build_fully_connect_layers(h_pool_flat, params.hidden_units, dropout_rate, mode)
       predictions = {"id": features.pop("id"), "content": tf.constant([""], dtype=tf.string)}
       metrics = {}
       loss = 0
+      mean_f1_score = 0
+      f1_dep_ops = []
       for k, v in features.iteritems():
-        with tf.variable_scope(k):
-          net = _build_fully_connect_layers(net, params.task_hidden_units, params.dropout_rate if "dropout_rate" in params else 0.0, mode)
-        one_logits = tf.layers.dense(net, params.num_classes, activation=None, name=k)
-        predict_classes = tf.argmax(one_logits, 1)
-        predictions[k] = predict_classes - 2
-        if mode == tf.estimator.ModeKeys.PREDICT:
-          continue
-        loss += tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=one_logits, labels=v), name=k+"_loss")
-        acc_key = k + "_accuracy"
-        metrics[acc_key] = tf.metrics.accuracy(labels=v, predictions=predict_classes)
-        tf.summary.scalar(acc_key, metrics[acc_key][1])
+        with tf.name_scope(k):
+          net = _build_fully_connect_layers(last_common_layer, params.task_hidden_units, dropout_rate, mode)
+          one_logits = tf.layers.dense(net, params.num_classes, activation=None, name=k + "_logits")
+          predict_classes = tf.argmax(one_logits, 1)
+          predictions[k] = predict_classes - 2
+          if mode == tf.estimator.ModeKeys.PREDICT:
+            continue
+          cur_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=one_logits, labels=v))
+          loss += cur_loss
+          tf.summary.scalar("loss", cur_loss)
+          acc_key = k + "/accuracy_1"
+          metrics[acc_key] = tf.metrics.accuracy(labels=v, predictions=predict_classes)
+          tf.summary.scalar("accuracy", metrics[acc_key][1])
+          f1_score = _get_f1_score_metric(v, predict_classes, params.num_classes)
+          metrics[k + "/f1_score"] = f1_score
+          f1_dep_ops.append(f1_score[1])
+          mean_f1_score += f1_score[0]
 
       if mode == tf.estimator.ModeKeys.PREDICT:
         export_outputs = { 'prediction': tf.estimator.export.PredictOutput(predictions) }
         return tf.estimator.EstimatorSpec(mode, predictions=predictions, export_outputs=export_outputs)
 
       if mode == tf.estimator.ModeKeys.EVAL:
+        metrics["f1_score"] = (mean_f1_score, tf.group(f1_dep_ops))
         return tf.estimator.EstimatorSpec(mode, loss=loss, eval_metric_ops=metrics)
 
       assert mode == tf.estimator.ModeKeys.TRAIN
