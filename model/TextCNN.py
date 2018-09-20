@@ -7,8 +7,9 @@ class TextCNN(tf.estimator.Estimator):
     if not optimizer: optimizer = 'Adagrad'
     self.optimizer = optimizers.get_optimizer_instance(optimizer, params.learning_rate)
 
-    def _build_fully_connect_layers(net, hidden_units, dropout_rate, mode):
+    def _build_fully_connect_layers(input_layer, hidden_units, dropout_rate, mode):
       # Build the hidden layers, sized according to the 'hidden_units' param.
+      net = input_layer
       for units in hidden_units:
         net = tf.layers.dense(net, units=units, activation=tf.nn.relu)
         if dropout_rate > 0.0:
@@ -61,14 +62,15 @@ class TextCNN(tf.estimator.Estimator):
       h_pool = tf.concat(pooled_outputs, 3)  # shape: (batch, 1, len(filter_size) * embedding_size, 1)
       h_pool_flat = tf.reshape(h_pool, [-1, params.num_filters * len(params.filter_sizes)])  # shape: (batch, len(filter_size) * embedding_size)
       dropout_rate = params.dropout_rate if "dropout_rate" in params else 0.0
-      last_common_layer = _build_fully_connect_layers(h_pool_flat, params.hidden_units, dropout_rate, mode)
+      with tf.variable_scope("common_layers"):
+        last_common_layer = _build_fully_connect_layers(h_pool_flat, params.hidden_units, dropout_rate, mode)
       predictions = {"id": features.pop("id"), "content": tf.constant([""], dtype=tf.string)}
       metrics = {}
       loss = 0
       mean_f1_score = 0
       f1_dep_ops = []
       for k, v in features.iteritems():
-        with tf.name_scope(k):
+        with tf.variable_scope(k):
           net = _build_fully_connect_layers(last_common_layer, params.task_hidden_units, dropout_rate, mode)
           one_logits = tf.layers.dense(net, params.num_classes, activation=None, name=k + "_logits")
           predict_classes = tf.argmax(one_logits, 1)
@@ -91,7 +93,7 @@ class TextCNN(tf.estimator.Estimator):
         return tf.estimator.EstimatorSpec(mode, predictions=predictions, export_outputs=export_outputs)
 
       if mode == tf.estimator.ModeKeys.EVAL:
-        metrics["f1_score"] = (mean_f1_score, tf.group(f1_dep_ops))
+        metrics["f1_score"] = (mean_f1_score / len(features), tf.group(f1_dep_ops))
         return tf.estimator.EstimatorSpec(mode, loss=loss, eval_metric_ops=metrics)
 
       assert mode == tf.estimator.ModeKeys.TRAIN

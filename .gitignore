@@ -2,3 +2,7 @@
 *$py.class
 model/*.pyc
 experiments/*/model.*
+experiments/*/events.*
+experiments/*/checkpoint
+experiments/*/graph.pbtxt
+experiments/*/eval
