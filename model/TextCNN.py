@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorboard import summary as summary_lib
+import re
 from tensorflow.python.estimator.canned import optimizers
 
 class TextCNN(tf.estimator.Estimator):
@@ -70,6 +70,8 @@ class TextCNN(tf.estimator.Estimator):
       mean_f1_score = 0
       f1_dep_ops = []
       for k, v in features.iteritems():
+        if params.label_pattern and not re.match(params.label_pattern):
+          continue
         with tf.variable_scope(k):
           net = _build_fully_connect_layers(last_common_layer, params.task_hidden_units, dropout_rate, mode)
           one_logits = tf.layers.dense(net, params.num_classes, activation=None, name=k + "_logits")
