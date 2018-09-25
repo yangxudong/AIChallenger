@@ -93,7 +93,7 @@ dish_portion,dish_taste,dish_look,dish_recommendation,\
 others_overall_experience,others_willing_to_consume_again".split(",")
   column_value_count = [ data[x].value_counts() for x in columns ]
   output = pd.concat(column_value_count, axis=1)
-  output.to_csv(output_file, index=False, encoding='utf-8')
+  output.T.to_csv(output_file, sep='|')
 
 
 if '__main__' == __name__:
@@ -113,4 +113,4 @@ if '__main__' == __name__:
   #append_content_ws(test_file, 'data/test_content.txt', 'data/test_content_words.txt', 'data/testa.csv', shuffle=False)
   #append_content_ws(train_file, 'data/train_content.txt', 'data/train_content_words.txt', 'data/train.csv')
   #append_content_ws(valid_file, 'data/valid_content.txt', 'data/valid_content_words.txt', 'data/valid.csv')
-  category_count( 'data/train_content_words.txt', 'data/value_count.csv')
+  category_count( 'data/train.csv', 'data/value_count.csv')
