@@ -83,6 +83,19 @@ def append_content_ws(input_file, content_file, ws_file, output_file, shuffle=Tr
   else:
     result.to_csv(output_file, index=False, encoding='utf-8')
 
+def category_count(input_file, output_file):
+  data = pd.read_csv(input_file, encoding='utf-8')
+  columns = "location_traffic_convenience,location_distance_from_business_district,location_easy_to_find,\
+service_wait_time,service_waiters_attitude,service_parking_convenience,service_serving_speed,\
+price_level,price_cost_effective,price_discount,\
+environment_decoration,environment_noise,environment_space,environment_cleaness,\
+dish_portion,dish_taste,dish_look,dish_recommendation,\
+others_overall_experience,others_willing_to_consume_again".split(",")
+  column_value_count = [ data[x].value_counts() for x in columns ]
+  output = pd.concat(column_value_count, axis=1)
+  output.to_csv(output_file, index=False, encoding='utf-8')
+
+
 if '__main__' == __name__:
   #load_stop_char("stop_char.txt")
   #print len(stop_char)
@@ -97,6 +110,7 @@ if '__main__' == __name__:
   #commands.getoutput("./segment.sh data/train_content.txt > data/train_content_words.txt")
   #commands.getoutput("./segment.sh data/valid_content.txt > data/valid_content_words.txt")
 
-  append_content_ws(test_file, 'data/test_content.txt', 'data/test_content_words.txt', 'data/testa.csv', shuffle=False)
-  append_content_ws(train_file, 'data/train_content.txt', 'data/train_content_words.txt', 'data/train.csv')
-  append_content_ws(valid_file, 'data/valid_content.txt', 'data/valid_content_words.txt', 'data/valid.csv')
+  #append_content_ws(test_file, 'data/test_content.txt', 'data/test_content_words.txt', 'data/testa.csv', shuffle=False)
+  #append_content_ws(train_file, 'data/train_content.txt', 'data/train_content_words.txt', 'data/train.csv')
+  #append_content_ws(valid_file, 'data/valid_content.txt', 'data/valid_content_words.txt', 'data/valid.csv')
+  category_count( 'data/train_content_words.txt', 'data/value_count.csv')
