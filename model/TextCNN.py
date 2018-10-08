@@ -68,10 +68,12 @@ class TextCNN(tf.estimator.Estimator):
       metrics = {}
       loss = 0
       mean_f1_score = 0
+      num_tasks = 0
       f1_dep_ops = []
       for k, v in features.iteritems():
-        if params.label_pattern and not re.match(params.label_pattern):
+        if params.label_pattern and not re.match(params.label_pattern, k):
           continue
+        num_tasks += 1
         with tf.variable_scope(k):
           net = _build_fully_connect_layers(last_common_layer, params.task_hidden_units, dropout_rate, mode)
           one_logits = tf.layers.dense(net, params.num_classes, activation=None, name=k + "_logits")
@@ -95,7 +97,7 @@ class TextCNN(tf.estimator.Estimator):
         return tf.estimator.EstimatorSpec(mode, predictions=predictions, export_outputs=export_outputs)
 
       if mode == tf.estimator.ModeKeys.EVAL:
-        metrics["f1_score"] = (mean_f1_score / len(features), tf.group(f1_dep_ops))
+        metrics["f1_score"] = (mean_f1_score / num_tasks, tf.group(f1_dep_ops))
         return tf.estimator.EstimatorSpec(mode, loss=loss, eval_metric_ops=metrics)
 
       assert mode == tf.estimator.ModeKeys.TRAIN
