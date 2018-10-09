@@ -96,10 +96,10 @@ def train_with_target(target, params):
   print("model_dir:", model_dir)
   config = tf.estimator.RunConfig(model_dir=model_dir, save_checkpoints_steps=FLAGS.save_checkpoints_steps)
   classifier = tf.estimator.LinearClassifier(feature_columns=[column], config=config)
-  write_result_hook = WriteWordWeightsHook(classifier, model_dir, path_words)
+  #write_result_hook = WriteWordWeightsHook(classifier, model_dir, path_words)
   train_spec = tf.estimator.TrainSpec(
     input_fn=lambda: input_fn(path_train, path_words, target, params, params.shuffle_buffer_size),
-    max_steps=params.train_steps, hooks=[write_result_hook]
+    max_steps=params.train_steps#, hooks=[write_result_hook]
   )
   eval_spec = tf.estimator.EvalSpec(
     input_fn=lambda: input_fn(path_eval, path_words, target, params, 0),
@@ -108,13 +108,13 @@ def train_with_target(target, params):
   print("before train and evaluate")
   tf.estimator.train_and_evaluate(classifier, train_spec, eval_spec)
   print("after train and evaluate")
-  #weights = classifier.get_variable_value('linear/linear_model/x/weights').flatten()
-  #id2word = tf.contrib.lookup.index_to_string_table_from_file(path_words, params.vocab_size)
-  #size = len(weights)
-  #weightTable = {id2word.lookup(i): weights[i] for i in range(size)}
-  #words = sorted(weightTable.items(), key=operator.itemgetter(1), reverse=True)
-  #output_file = os.path.join(model_dir, "word_weights.txt")
-  #write_dict(words, output_file)
+  weights = classifier.get_variable_value('linear/linear_model/x/weights').flatten()
+  id2word = read_vocab(path_words)
+  size = len(weights)
+  weightTable = {id2word.get(i, "UNK"): weights[i] for i in range(size)}
+  words = sorted(weightTable.items(), key=operator.itemgetter(1), reverse=True)
+  output_file = os.path.join(model_dir, "word_weights.txt")
+  write_dict(words, output_file)
 
 
 def main(unused_argv):
@@ -132,6 +132,15 @@ def main(unused_argv):
   for target in targets:
     train_with_target(target, params)
 
+def read_vocab(path_vocab):
+  vocab = {}
+  inputFile = open(path_vocab, 'r')
+  id = 0
+  for line in inputFile:
+    vocab[id] = line.rstrip()
+    id += 1
+  inputFile.close()
+  return vocab
 
 def write_dict(dict, output_file):
   print("writing to " + output_file)
