@@ -26,6 +26,23 @@ flags.DEFINE_bool("train", True, "Whether to train and evaluation")
 flags.DEFINE_bool("predict", True, "Whether to predict")
 FLAGS = flags.FLAGS
 
+class WriteWordWeightsHook(tf.train.SessionRunHook):
+  def __init__(self, classifier, model_dir, path_vocab):
+    self.classifier = classifier
+    self.model_dir = model_dir
+    self.path_vocab = path_vocab
+
+  def end(self, session):
+    weights = self.classifier.get_variable_value('linear/linear_model/x/weights').flatten()
+    id2word = tf.contrib.lookup.index_to_string_table_from_file(self.path_vocab)
+    size = len(weights)
+    weightTable = {id2word.lookup(i): weights[i] for i in range(size)}
+    words = sorted(weightTable.items(), key=operator.itemgetter(1), reverse=True)
+    output_file = os.path.join(self.model_dir, "word_weights.txt")
+    write_dict(words, output_file)
+
+
+
 def parse_line(line, vocab, max_len, target):
   columns = tf.decode_csv(line, _CSV_DEFAULTS, field_delim=',')
   features = dict(zip(_CSV_COLUMNS, columns))
@@ -79,9 +96,10 @@ def train_with_target(target, params):
   print("model_dir:", model_dir)
   config = tf.estimator.RunConfig(model_dir=model_dir, save_checkpoints_steps=FLAGS.save_checkpoints_steps)
   classifier = tf.estimator.LinearClassifier(feature_columns=[column], config=config)
+  write_result_hook = WriteWordWeightsHook(classifier, model_dir, path_words)
   train_spec = tf.estimator.TrainSpec(
     input_fn=lambda: input_fn(path_train, path_words, target, params, params.shuffle_buffer_size),
-    max_steps=params.train_steps
+    max_steps=params.train_steps, hooks=[write_result_hook]
   )
   eval_spec = tf.estimator.EvalSpec(
     input_fn=lambda: input_fn(path_eval, path_words, target, params, 0),
@@ -90,16 +108,17 @@ def train_with_target(target, params):
   print("before train and evaluate")
   tf.estimator.train_and_evaluate(classifier, train_spec, eval_spec)
   print("after train and evaluate")
-  weights = classifier.get_variable_value('linear/linear_model/x/weights').flatten()
-  id2word = tf.contrib.lookup.index_to_string_table_from_file(path_words, params.vocab_size)
-  size = len(weights)
-  weightTable = {id2word.lookup(i): weights[i] for i in range(size)}
-  words = sorted(weightTable.items(), key=operator.itemgetter(1), reverse=True)
-  output_file = os.path.join(model_dir, "word_weights.txt")
-  write_dict(words, output_file)
+  #weights = classifier.get_variable_value('linear/linear_model/x/weights').flatten()
+  #id2word = tf.contrib.lookup.index_to_string_table_from_file(path_words, params.vocab_size)
+  #size = len(weights)
+  #weightTable = {id2word.lookup(i): weights[i] for i in range(size)}
+  #words = sorted(weightTable.items(), key=operator.itemgetter(1), reverse=True)
+  #output_file = os.path.join(model_dir, "word_weights.txt")
+  #write_dict(words, output_file)
 
 
 def main(unused_argv):
+  os.environ["CUDA_VISIBLE_DEVICES"] = FLAGS.gpu
   json_path = os.path.join(FLAGS.model_dir, 'params.json')
   assert os.path.isfile(json_path), "No json configuration file found at {}".format(json_path)
   params = Params(json_path)
