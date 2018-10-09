@@ -20,8 +20,8 @@ flags = tf.app.flags
 flags.DEFINE_string("data_dir", "../data", "Directory containing the dataset.")
 flags.DEFINE_string("model_dir", "../experiments/linear", "Base directory for the model.")
 flags.DEFINE_string("gpu", "0", "which gpu to use.")
-flags.DEFINE_integer("save_checkpoints_steps", 2000, "Save checkpoints every this many steps")
-flags.DEFINE_integer("throttle_secs", 300, "evaluation time span in seconds")
+flags.DEFINE_integer("save_checkpoints_steps", 1000, "Save checkpoints every this many steps")
+flags.DEFINE_integer("throttle_secs", 240, "evaluation time span in seconds")
 flags.DEFINE_bool("train", True, "Whether to train and evaluation")
 flags.DEFINE_bool("predict", True, "Whether to predict")
 FLAGS = flags.FLAGS
@@ -62,7 +62,7 @@ def input_fn(path_csv, path_vocab, target, params, shuffle_buffer_size):
   # Create batches and pad the sentences of different length
   padded_shapes = ({"x": tf.TensorShape([params.sentence_max_len])}, [])
   #padding_values = ({"x": params.id_pad_word}, 0)
-  padding_values = ({"x": tf.cast(params.vocab_size, tf.int64)}, 0)
+  padding_values = ({"x": tf.cast(0, tf.int64)}, 0)
   dataset = dataset.padded_batch(params.batch_size, padded_shapes, padding_values).prefetch(1)
   print(dataset.output_types)
   print(dataset.output_shapes)
