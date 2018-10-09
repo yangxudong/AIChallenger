@@ -1,3 +1,6 @@
+#!/usr/bin/python
+import sys
+sys.path.append("..")
 import tensorflow as tf
 import os
 import operator
@@ -17,7 +20,7 @@ flags = tf.app.flags
 flags.DEFINE_string("data_dir", "../data", "Directory containing the dataset.")
 flags.DEFINE_string("model_dir", "../experiments/linear", "Base directory for the model.")
 flags.DEFINE_string("gpu", "0", "which gpu to use.")
-flags.DEFINE_integer("save_checkpoints_steps", 1000, "Save checkpoints every this many steps")
+flags.DEFINE_integer("save_checkpoints_steps", 2000, "Save checkpoints every this many steps")
 flags.DEFINE_integer("throttle_secs", 300, "evaluation time span in seconds")
 flags.DEFINE_bool("train", True, "Whether to train and evaluation")
 flags.DEFINE_bool("predict", True, "Whether to predict")
@@ -66,12 +69,14 @@ def input_fn(path_csv, path_vocab, target, params, shuffle_buffer_size):
   return dataset
 
 def train_with_target(target, params):
+  print("training " + target)
   path_words = os.path.join(FLAGS.data_dir, 'words.txt')
   path_train = os.path.join(FLAGS.data_dir, 'train.csv')
   path_eval = os.path.join(FLAGS.data_dir, 'valid.csv')
   #test(path_eval, path_words, params)
   column = tf.feature_column.categorical_column_with_identity('x', params.vocab_size)
-  model_dir = os.path.join((FLAGS.model_dir, target))
+  model_dir = os.path.join(FLAGS.model_dir, target)
+  print("model_dir:", model_dir)
   config = tf.estimator.RunConfig(model_dir=model_dir, save_checkpoints_steps=FLAGS.save_checkpoints_steps)
   classifier = tf.estimator.LinearClassifier(feature_columns=[column], config=config)
   train_spec = tf.estimator.TrainSpec(
