@@ -18,7 +18,6 @@ class HAN(tf.estimator.Estimator):
     warm_start_from=None,
   ):
     ''' an implement of Hierarchical Attention Networks for Document Classification '''
-    self.params = params
     if not optimizer: optimizer = 'Adagrad'
     self.optimizer = optimizers.get_optimizer_instance(optimizer, params.learning_rate)
 
@@ -39,15 +38,14 @@ class HAN(tf.estimator.Estimator):
       )
 
     super(HAN, self).__init__(
-      model_fn=_model_fn, model_dir=model_dir, config=config,
-      warm_start_from=warm_start_from)
+      model_fn=_model_fn, model_dir=model_dir, config=config, params=params, warm_start_from=warm_start_from)
 
   def word2vec(self, x):
     # 嵌入层
     with tf.name_scope("embedding"):
       # Get word embeddings for each token in the sentence
       embedding_mat = tf.get_variable(name="embeddings", dtype=tf.float32,
-                                   shape=[self.params.vocab_size, self.params.embedding_size])
+                                   shape=[self._params.vocab_size, self._params.embedding_size])
       # shape为[batch_size, sent_in_doc, word_in_sent, embedding_size]
       word_embedded = tf.nn.embedding_lookup(embedding_mat, x)
     return word_embedded
@@ -59,7 +57,7 @@ class HAN(tf.estimator.Estimator):
       # 并最终将一句话中的所有单词的词向量融合（Attention）在一起形成句子向量
 
       # shape为[batch_size*sent_in_doc, word_in_sent, embedding_size]
-      word_embedded = tf.reshape(word_embedded, [-1, self.params.max_sentence_length, self.params.embedding_size])
+      word_embedded = tf.reshape(word_embedded, [-1, self._params.max_sentence_length, self._params.embedding_size])
       word_num = tf.reshape(word_num, [-1])
       # shape为[batch_size*sent_in_doce, word_in_sent, hidden_size*2]
       word_encoded = self.BidirectionalGRUEncoder(word_embedded, word_num, name='word_encoder')
@@ -70,7 +68,7 @@ class HAN(tf.estimator.Estimator):
   def doc2vec(self, sent_vec, sent_num):
     # 原理与sent2vec一样，根据文档中所有句子的向量构成一个文档向量
     with tf.name_scope("doc2vec"):
-      sent_vec = tf.reshape(sent_vec, [-1, self.params.max_sentence_num, self.params.hidden_size * 2])
+      sent_vec = tf.reshape(sent_vec, [-1, self._params.max_sentence_num, self._params.hidden_size * 2])
       # shape为[batch_size, sent_in_doc, hidden_size*2]
       doc_encoded = self.BidirectionalGRUEncoder(sent_vec, sent_num, name='sent_encoder')
       # shape为[batch_szie, hidden_szie*2]
@@ -80,7 +78,7 @@ class HAN(tf.estimator.Estimator):
   def classifer(self, doc_vec):
     # 最终的输出层，是一个全连接层
     with tf.name_scope('doc_classification'):
-      out = tf.layers.dense(inputs=doc_vec, num_outputs=self.params.num_classes, activation_fn=None)
+      out = tf.layers.dense(inputs=doc_vec, num_outputs=self._params.num_classes, activation_fn=None)
       return out
 
   def BidirectionalGRUEncoder(self, inputs, sequence_len, name):
@@ -88,8 +86,8 @@ class HAN(tf.estimator.Estimator):
     # 然后在经过Attention层，将所有的单词或句子的输出向量加权得到一个最终的句子/文档向量。
     # 输入inputs的shape是[batch_size, max_time, voc_size]
     with tf.variable_scope(name):
-      GRU_cell_fw = tf.nn.rnn_cell.GRUCell(self.params.hidden_size)
-      GRU_cell_bw = tf.nn.rnn_cell.GRUCell(self.params.hidden_size)
+      GRU_cell_fw = tf.nn.rnn_cell.GRUCell(self._params.hidden_size)
+      GRU_cell_bw = tf.nn.rnn_cell.GRUCell(self._params.hidden_size)
       # fw_outputs和bw_outputs的size都是[batch_size, max_time, hidden_size]
       ((fw_outputs, bw_outputs), (_, _)) = tf.nn.bidirectional_dynamic_rnn(cell_fw=GRU_cell_fw,
                                                                            cell_bw=GRU_cell_bw,
@@ -105,7 +103,7 @@ class HAN(tf.estimator.Estimator):
     with tf.variable_scope(name):
       # u_context是上下文的重要性向量，用于区分不同单词/句子对于句子/文档的重要程度,
       # 因为使用双向GRU，所以其长度为2×hidden_szie
-      hidden_size = self.params.hidden_size * 2
+      hidden_size = self._params.hidden_size * 2
       u_context = tf.get_variable('u_context', [hidden_size], dtype=tf.float32)
       # 使用一个全连接层编码GRU的输出的到期隐层表示,输出h的size是[batch_size, max_time, hidden_size * 2]
       h = tf.layers.dense(inputs, units=hidden_size, activation=tf.nn.tanh)

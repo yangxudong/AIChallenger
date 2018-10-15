@@ -41,8 +41,8 @@ def input_fn(path_csv, path_vocab, label, params, shuffle_buffer_size):
   if shuffle_buffer_size > 0:
     dataset = dataset.shuffle(shuffle_buffer_size).repeat()
   # Create batches and pad the sentences of different length
-  feature_shapes = {"content": tf.TensorShape([params.max_doc_len, params.max_sentence_len]),
-                    "sentence_len": tf.TensorShape([params.max_doc_len]),
+  feature_shapes = {"content": tf.TensorShape([params.max_sentence_num, params.max_sentence_len]),
+                    "sentence_len": tf.TensorShape([params.max_sentence_num]),
                     "sentence_num": tf.TensorShape([])}
   pad_values = {"content": params.id_pad_word, "sentence_len": 0, "sentence_num": 0}
   padded_shapes = (feature_shapes, [])
