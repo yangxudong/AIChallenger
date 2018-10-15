@@ -21,9 +21,9 @@ class HAN(tf.estimator.Estimator):
     if not optimizer: optimizer = 'Adagrad'
     self.optimizer = optimizers.get_optimizer_instance(optimizer, params.learning_rate)
 
-    def _model_fn(features, labels, mode, config):
+    def _model_fn(features, labels, mode, params):
       # 构建模型
-      word_embedded = self.word2vec(params, features["content"])
+      word_embedded = self.word2vec(features["content"])
       sent_vec = self.sent2vec(word_embedded, features["sentence_len"])
       doc_vec = self.doc2vec(sent_vec, features["sentence_num"])
 
@@ -57,7 +57,7 @@ class HAN(tf.estimator.Estimator):
       # 并最终将一句话中的所有单词的词向量融合（Attention）在一起形成句子向量
 
       # shape为[batch_size*sent_in_doc, word_in_sent, embedding_size]
-      word_embedded = tf.reshape(word_embedded, [-1, self._params.max_sentence_length, self._params.embedding_size])
+      word_embedded = tf.reshape(word_embedded, [-1, self._params.max_sentence_len, self._params.embedding_size])
       word_num = tf.reshape(word_num, [-1])
       # shape为[batch_size*sent_in_doce, word_in_sent, hidden_size*2]
       word_encoded = self.BidirectionalGRUEncoder(word_embedded, word_num, name='word_encoder')
@@ -78,7 +78,7 @@ class HAN(tf.estimator.Estimator):
   def classifer(self, doc_vec):
     # 最终的输出层，是一个全连接层
     with tf.name_scope('doc_classification'):
-      out = tf.layers.dense(inputs=doc_vec, num_outputs=self._params.num_classes, activation_fn=None)
+      out = tf.layers.dense(doc_vec, self._params.num_classes, activation=None)
       return out
 
   def BidirectionalGRUEncoder(self, inputs, sequence_len, name):
@@ -107,9 +107,13 @@ class HAN(tf.estimator.Estimator):
       u_context = tf.get_variable('u_context', [hidden_size], dtype=tf.float32)
       # 使用一个全连接层编码GRU的输出的到期隐层表示,输出h的size是[batch_size, max_time, hidden_size * 2]
       h = tf.layers.dense(inputs, units=hidden_size, activation=tf.nn.tanh)
+      print("inputs:", inputs.shape, ", h:", h.shape)
       # shape为[batch_size, max_time, 1]
       #alpha = tf.nn.softmax(tf.reduce_sum(tf.multiply(h, u_context), axis=2, keep_dims=True), dim=1)
       alpha = tf.nn.softmax(tf.tensordot(h, u_context, [[-1], [0]])) # shape = [batch_size, max_time]
+      print(alpha.shape)
+      alpha = tf.expand_dims(alpha, -1)
       # reduce_sum之前shape为[batch_szie, max_time, hidden_szie*2]，之后shape为[batch_size, hidden_size*2]
       atten_output = tf.reduce_sum(tf.multiply(inputs, alpha), axis=1)
+      print(atten_output)
       return atten_output
