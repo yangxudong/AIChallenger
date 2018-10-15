@@ -1,7 +1,7 @@
 {
-    "train_size": 105000, 
-    "valid_size": 15000, 
+    "vocab_size": 115841, 
+    "max_sentence_len": 100, 
+    "max_doc_len": 65, 
     "num_oov_buckets": 1, 
-    "pad_word": "<pad>", 
-    "vocab_size": 59345
+    "pad_word": "<pad>"
 }

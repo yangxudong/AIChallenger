@@ -5,59 +5,20 @@ from zhon import cedict
 from zhon import hanzi
 import string
 import csv
-import re
 import commands
 
-stop_char = set()
-def load_stop_char(char_file):
-  global stop_char
-  fhandler = open(char_file)
-  for line in fhandler:
-    c = line.strip('\r\n')
-    stop_char.add(c)
-  fhandler.close()
-  stop_char.add('\r')
-  stop_char.add('\n')
-  ctrl = [8204, 8205, 8206, 8207, 8234, 8236, 8237, 8238, 8298, 8299, 8300, 8301, 8302, 8303]
-  ctrl += range(0, 32)
-  for c in ctrl:
-    stop_char.add(unichr(c))
-
-def remove_chinese_punctuation(string):
-  #return re.sub(ur"[%s]+" %punctuation, u" ", string.decode("utf-8")).encode("utf-8") # 需要将str转换为unicode
-  return re.sub(ur"[%s]+" %hanzi.punctuation, u" ", string)
-
-def filter_stop_char(string):
-  string = string.replace('\n', ' ')
-  string = remove_chinese_punctuation(string)
-  #return string
-  global stop_char
-  sentence = ''
-  prev_space = False
-  for char in string:
-    if char in stop_char:
-      continue
-    elif char != ' ':
-      sentence += char
-      prev_space = False
-    elif prev_space:
-      continue
-    else:
-      sentence += char
-      prev_space = True
-  return sentence
-
+en_stops = set(list(u".?!\r\n~;；丶ˋ～…"))
 def transform(char):
+  if char in en_stops or char in hanzi.stops:
+    return "."
   if char.isalnum():
     return char.lower()
   if char in cedict.simplified:
     return char
-  if char == "." or char in hanzi.stops:
-    return "."
   if char.isspace() or char in hanzi.non_stops or char in string.punctuation:
-    return " "
+    return ";"
   if char == u"、":
-    return " "
+    return ";"
   index = cedict.traditional.find(char)
   if index >= 0:
     return cedict.simplified[index]
@@ -71,12 +32,71 @@ def get_content(input_file, output_file):
   content = data.content.map(translate)
   content.to_csv(output_file, index=False, encoding='utf-8')
 
+def get_clauses(sentence):
+  result = []
+  clauses = sentence.split(";")
+  sent = []
+  i = 0
+  for c in clauses:
+    words = c.split()
+    if len(words) + len(sent) <= 100 and i < 8: # 每句话最多8个短句, 总长度限制在100以内
+      sent.extend(words)
+      i += 1
+    else:
+      if len(sent) > 0:
+        result.append(sent)
+      if len(words) > 100:
+        for i in range(0, len(words), 100):
+          result.append(words[i : i + 100])
+        sent = []
+        i = 0
+      else:
+        sent = words
+        i = 1
+  if len(sent) > 0:
+    result.append(sent)
+  return result
+
+def doc_to_sentences(doc):
+  sentences = doc.split(".")
+  result = []
+  for s in sentences:
+    if not s: continue
+    s = s.strip(";")
+    if not s: continue
+    clauses = get_clauses(s)
+    if not clauses: continue
+    first_clause_len = len(clauses[0])
+    if len(result) > 0 and len(clauses) == 1 and first_clause_len < 10 and len(result[-1]) + first_clause_len <= 40:
+      result[-1] += clauses[0]
+    else:
+      result.extend(clauses)
+  pad_result, sent_len = pad_sequence(result, 100, "<pad>")
+  return "\n".join([" ".join(row) for row in pad_result]), ":".join([str(l) for l in sent_len])
+
+def pad_sequence(inputs, maxlen, value):
+  sent_len = []
+  for i in range(len(inputs)):
+    s = inputs[i]
+    length = len(s)
+    if length > maxlen:
+      inputs[i] = s[:maxlen]
+      sent_len.append(maxlen)
+    elif len(s) < maxlen:
+      sent_len.append(length)
+      inputs[i].extend([value] * (maxlen - len(s)))
+    else:
+      sent_len.append(length)
+  return inputs, sent_len
+
+
 def append_content_ws(input_file, content_file, ws_file, output_file, shuffle=True):
   data = pd.read_csv(input_file, encoding='utf-8')
-  data.drop(columns=['content'], inplace=True)
-  content = pd.read_csv(content_file, names=['content'], encoding='utf-8')
+  #data.drop(columns=['content'], inplace=True)
+  formatted_content = pd.read_csv(content_file, names=['formatted_content'], encoding='utf-8')
+  result = pd.concat([data, formatted_content], axis=1)
   content_ws = pd.read_csv(ws_file, names=['content_ws'], encoding='utf-8')
-  result = pd.concat([content, data, content_ws], axis=1)
+  result["sentences"], result["sentence_len"] = zip(*content_ws.content_ws.map(doc_to_sentences))
   if shuffle:
     result = result.sample(frac=1)
     result.to_csv(output_file, quoting=csv.QUOTE_NONNUMERIC, index=False, encoding='utf-8')
@@ -97,20 +117,20 @@ others_overall_experience,others_willing_to_consume_again".split(",")
 
 
 if '__main__' == __name__:
-  #load_stop_char("stop_char.txt")
-  #print len(stop_char)
   test_file = 'raw_data/ai_challenger_sentiment_analysis_testa_20180816/sentiment_analysis_testa.csv'
   train_file = 'raw_data/ai_challenger_sentiment_analysis_trainingset_20180816/sentiment_analysis_trainingset.csv'
   valid_file = 'raw_data/ai_challenger_sentiment_analysis_validationset_20180816/sentiment_analysis_validationset.csv'
-  #get_content(test_file, 'data/test_content.txt')
-  #get_content(train_file, 'data/train_content.txt')
-  #get_content(valid_file, 'data/valid_content.txt')
 
-  #commands.getoutput("./segment.sh data/test_content.txt > data/test_content_words.txt")
-  #commands.getoutput("./segment.sh data/train_content.txt > data/train_content_words.txt")
-  #commands.getoutput("./segment.sh data/valid_content.txt > data/valid_content_words.txt")
+  get_content(test_file, 'data/test_content.txt')
+  get_content(train_file, 'data/train_content.txt')
+  get_content(valid_file, 'data/valid_content.txt')
 
-  #append_content_ws(test_file, 'data/test_content.txt', 'data/test_content_words.txt', 'data/testa.csv', shuffle=False)
-  #append_content_ws(train_file, 'data/train_content.txt', 'data/train_content_words.txt', 'data/train.csv')
-  #append_content_ws(valid_file, 'data/valid_content.txt', 'data/valid_content_words.txt', 'data/valid.csv')
-  category_count( 'data/train.csv', 'data/value_count.csv')
+  commands.getoutput("./segment.sh data/test_content.txt > data/test_content_words.txt")
+  commands.getoutput("./segment.sh data/train_content.txt > data/train_content_words.txt")
+  commands.getoutput("./segment.sh data/valid_content.txt > data/valid_content_words.txt")
+
+  append_content_ws(test_file, 'data/test_content.txt', 'data/test_content_words.txt', 'data/testa.csv', shuffle=False)
+  append_content_ws(train_file, 'data/train_content.txt', 'data/train_content_words.txt', 'data/train.csv')
+  append_content_ws(valid_file, 'data/valid_content.txt', 'data/valid_content_words.txt', 'data/valid.csv')
+
+  #category_count( 'data/train.csv', 'data/value_count.csv')
