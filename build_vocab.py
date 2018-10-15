@@ -56,7 +56,7 @@ def update_vocab(txt_path, vocab):
 
 max_sentence_len = 0
 def update_sentences(doc, sentences, doc_len, vocab):
-    ss = doc.split("\n")
+    ss = doc.split(":")
     doc_len.append(len(ss))
     global max_sentence_len
     for s in ss:
@@ -111,7 +111,7 @@ if __name__ == '__main__':
     #    'train_size': size_train_sentences,
     #    'valid_size': size_dev_sentences,
     #    'test_size': size_test_sentences,
-        'max_doc_len': max(doc_len),
+        'max_sentence_num': max(doc_len),
         'max_sentence_len': max_sentence_len,
         'vocab_size': len(words) + NUM_OOV_BUCKETS,
         'pad_word': PAD_WORD,

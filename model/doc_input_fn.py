@@ -1,3 +1,4 @@
+#!/usr/bin/python
 """Create the input data pipeline using `tf.data`"""
 import tensorflow as tf
 
@@ -54,16 +55,15 @@ def input_fn(path_csv, path_vocab, label, params, shuffle_buffer_size):
   return dataset
 
 if __name__ == "__main__":
-  params = {
-	"max_sentence_len": 100,
-	"max_sentence_num": 65,
-	"pad_word": "<pad>",
-	"batch_size": 1
-  }
+  from Params import Params
+  params = Params("data/dataset_params.json")
+  params.batch_size = 2
   dataset = input_fn("data/valid.csv", "data/words.txt", "environment_space", params, 0)
   iterator = dataset.make_initializable_iterator()
   next_element = iterator.get_next()
   with tf.Session() as sess:
+    sess.run(tf.tables_initializer())
     sess.run(iterator.initializer)
+    print(sess.run(params.id_pad_word))
     print(sess.run(next_element))
     print(sess.run(next_element))

@@ -72,7 +72,7 @@ def doc_to_sentences(doc):
     else:
       result.extend(clauses)
   pad_result, sent_len = pad_sequence(result, 100, "<pad>")
-  return "\n".join([" ".join(row) for row in pad_result]), ":".join([str(l) for l in sent_len])
+  return ":".join([" ".join(row) for row in pad_result]), ":".join([str(l) for l in sent_len])
 
 def pad_sequence(inputs, maxlen, value):
   sent_len = []
@@ -92,9 +92,9 @@ def pad_sequence(inputs, maxlen, value):
 
 def append_content_ws(input_file, content_file, ws_file, output_file, shuffle=True):
   data = pd.read_csv(input_file, encoding='utf-8')
-  #data.drop(columns=['content'], inplace=True)
-  formatted_content = pd.read_csv(content_file, names=['formatted_content'], encoding='utf-8')
-  result = pd.concat([data, formatted_content], axis=1)
+  data.drop(columns=['content'], inplace=True)
+  formatted_content = pd.read_csv(content_file, names=['content'], encoding='utf-8')
+  result = pd.concat([formatted_content, data], axis=1)
   content_ws = pd.read_csv(ws_file, names=['content_ws'], encoding='utf-8')
   result["sentences"], result["sentence_len"] = zip(*content_ws.content_ws.map(doc_to_sentences))
   if shuffle:
