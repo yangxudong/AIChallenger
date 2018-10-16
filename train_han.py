@@ -10,23 +10,24 @@ from model.doc_input_fn import input_fn
 
 flags = tf.app.flags
 flags.DEFINE_string("data_dir", "data", "Directory containing the dataset.")
-flags.DEFINE_string("model_dir", "experiments/TextCNN", "Base directory for the model.")
+flags.DEFINE_string("model_dir", "experiments/HAN", "Base directory for the model.")
 flags.DEFINE_string("gpu", "0", "which gpu to use.")
-flags.DEFINE_integer("save_checkpoints_steps", 1000, "Save checkpoints every this many steps")
+flags.DEFINE_integer("save_checkpoints_steps", 3000, "Save checkpoints every this many steps")
+flags.DEFINE_integer("keep_checkpoint_max", 20, "how many checkpoints will be keep")
 flags.DEFINE_integer("throttle_secs", 300, "evaluation time span in seconds")
 flags.DEFINE_bool("train", True, "Whether to train and evaluation")
-flags.DEFINE_bool("predict", False, "Whether to predict")
+flags.DEFINE_bool("predict", True, "Whether to predict")
 FLAGS = flags.FLAGS
 
-OUTPUT_CSV_COLUMNS = "content,location_traffic_convenience,location_distance_from_business_district,location_easy_to_find,\
+TARGETS = "location_traffic_convenience,location_distance_from_business_district,location_easy_to_find,\
 service_wait_time,service_waiters_attitude,service_parking_convenience,service_serving_speed,\
 price_level,price_cost_effective,price_discount,\
 environment_decoration,environment_noise,environment_space,environment_cleaness,\
 dish_portion,dish_taste,dish_look,dish_recommendation,\
 others_overall_experience,others_willing_to_consume_again".split(",")
 
-def main(unused_argv):
-  os.environ["CUDA_VISIBLE_DEVICES"] = FLAGS.gpu
+def train_and_predict(label):
+  print("start train_and_predict target: " + label)
   json_path = os.path.join(FLAGS.model_dir, 'params.json')
   assert os.path.isfile(json_path), "No json configuration file found at {}".format(json_path)
   params = Params(json_path)
@@ -34,18 +35,13 @@ def main(unused_argv):
   json_path = os.path.join(FLAGS.data_dir, 'dataset_params.json')
   assert os.path.isfile(json_path), "No json file found at {}, run build_vocab.py".format(json_path)
   params.update(json_path)
-
   path_words = os.path.join(FLAGS.data_dir, 'words.txt')
   path_train = os.path.join(FLAGS.data_dir, 'train.csv')
   path_eval = os.path.join(FLAGS.data_dir, 'valid.csv')
   path_test = os.path.join(FLAGS.data_dir, 'testa.csv')
-  print("train set:", path_train)
-  print("valid set:", path_eval)
-  print("test set:", path_test)
-
-  config = tf.estimator.RunConfig(model_dir=FLAGS.model_dir, save_checkpoints_steps=FLAGS.save_checkpoints_steps)
-  estimator = HAN(params, model_dir=FLAGS.model_dir, config=config, optimizer=params.optimizer if "optimizer" in params else None)
-  label = "location_traffic_convenience"
+  model_dir = os.path.join(FLAGS.model_dir, label)
+  config = tf.estimator.RunConfig(model_dir=model_dir, save_checkpoints_steps=FLAGS.save_checkpoints_steps, keep_checkpoint_max=FLAGS.keep_checkpoint_max)
+  estimator = HAN(params, model_dir=model_dir, config=config, optimizer=params.optimizer if "optimizer" in params else None)
   if FLAGS.train:
     train_spec = tf.estimator.TrainSpec(
       input_fn=lambda: input_fn(path_train, path_words, label, params, params.shuffle_buffer_size),
@@ -55,16 +51,25 @@ def main(unused_argv):
       input_fn=lambda: input_fn(path_eval, path_words, label, params, 0),
       throttle_secs=FLAGS.throttle_secs
     )
-    print("before train and evaluate")
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
-    print("after train and evaluate")
+
   if FLAGS.predict:
     params.batch_size = 1
-    test_input_fn = lambda: input_fn(path_test, path_words, params, 0)
+    test_input_fn = lambda: input_fn(path_test, path_words, label, params, 0)
     predictions = estimator.predict(test_input_fn)
     result = pd.DataFrame(predictions)
-    output_path = os.path.join(FLAGS.model_dir, params.model + '_result.csv')
-    result.to_csv(output_path, index_label="id", columns=OUTPUT_CSV_COLUMNS)
+    output_path = os.path.join(model_dir, label + '_result.csv')
+    result.to_csv(output_path, columns=["class_ids"])
+  print("finished train and predict of target: " + label)
+
+
+def main(unused_argv):
+  os.environ["CUDA_VISIBLE_DEVICES"] = FLAGS.gpu
+  print("gpu=", FLAGS.gpu)
+  targets = TARGETS[1:10] if FLAGS.gpu == "0" else TARGETS[11:]
+  print("targets:", targets)
+  for target in targets:
+    train_and_predict(target)
 
 if __name__ == '__main__':
   if "CUDA_VISIBLE_DEVICES" in os.environ:

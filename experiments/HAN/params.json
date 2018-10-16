@@ -3,9 +3,9 @@
   "embedding_size": 100,
   "hidden_size": 128,
   "num_classes": 4,
-  "learning_rate": 0.005,
+  "learning_rate": 0.01,
   "batch_size": 64,
   "shuffle_buffer_size": 10000,
   "optimizer": "Adam",
-  "train_steps": 2000
+  "train_steps": 10000
 }
