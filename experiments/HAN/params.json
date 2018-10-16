@@ -1,11 +1,14 @@
 {
   "model": "HAN",
   "embedding_size": 100,
-  "hidden_size": 128,
+  "hidden_size": 64,
   "num_classes": 4,
-  "learning_rate": 0.01,
+  "learning_rate": 0.0005,
   "batch_size": 64,
-  "shuffle_buffer_size": 10000,
+  "shuffle_buffer_size": 50000,
   "optimizer": "Adam",
+  "word_embedding_keep_rate": 0.8,
+  "sent_embedding_keep_rate": 0.85,
+  "doc_embedding_keep_rate": 0.6,
   "train_steps": 10000
 }

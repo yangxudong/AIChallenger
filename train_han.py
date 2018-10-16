@@ -12,6 +12,7 @@ flags = tf.app.flags
 flags.DEFINE_string("data_dir", "data", "Directory containing the dataset.")
 flags.DEFINE_string("model_dir", "experiments/HAN", "Base directory for the model.")
 flags.DEFINE_string("gpu", "0", "which gpu to use.")
+flags.DEFINE_string("target_prefix", "price_level", "the prefix of target name.")
 flags.DEFINE_integer("save_checkpoints_steps", 3000, "Save checkpoints every this many steps")
 flags.DEFINE_integer("keep_checkpoint_max", 20, "how many checkpoints will be keep")
 flags.DEFINE_integer("throttle_secs", 300, "evaluation time span in seconds")
@@ -65,8 +66,7 @@ def train_and_predict(label):
 
 def main(unused_argv):
   os.environ["CUDA_VISIBLE_DEVICES"] = FLAGS.gpu
-  print("gpu=", FLAGS.gpu)
-  targets = TARGETS[1:10] if FLAGS.gpu == "0" else TARGETS[11:]
+  targets = [t for t in TARGETS if t.startswith(FLAGS.target_prefix)]
   print("targets:", targets)
   for target in targets:
     train_and_predict(target)
