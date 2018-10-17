@@ -22,8 +22,11 @@ class HAN(tf.estimator.Estimator):
       is_training = mode == tf.estimator.ModeKeys.TRAIN
       if "doc_embedding_keep_rate" in params and params.doc_embedding_keep_rate < 1.0:
         doc_vec = tf.layers.dropout(doc_vec, params.doc_embedding_keep_rate, training=is_training)
-      logits = tf.layers.dense(doc_vec, self._params.num_classes, activation=None)
-      my_head = tf.contrib.estimator.multi_class_head(params.num_classes)
+      if params.num_classes == 2:
+        my_head = tf.contrib.estimator.binary_classification_head()
+      else:
+        my_head = tf.contrib.estimator.multi_class_head(params.num_classes)
+      logits = tf.layers.dense(doc_vec, my_head.logits_dimension, activation=None)
       return my_head.create_estimator_spec(
         features=features,
         mode=mode,

@@ -12,7 +12,7 @@ others_overall_experience,others_willing_to_consume_again,sentences,sentence_len
 _CSV_DEFAULTS = [[""], [0], [-2], [-2], [-2], [-2], [-2], [-2], [-2], [-2], [-2], [-2], [-2], [-2], [-2],
                  [-2], [-2], [-2], [-2], [-2], [-2], [-2], [""], [""]]
 
-def parse_line(line, vocab, pad_word, label):
+def parse_line(line, vocab, pad_word, label, multi_class=True):
   columns = tf.decode_csv(line, _CSV_DEFAULTS, field_delim=',')
   features = dict(zip(_CSV_COLUMNS, columns))
   
@@ -23,7 +23,8 @@ def parse_line(line, vocab, pad_word, label):
   sentence_len = tf.string_to_number(tf.string_split([features["sentence_len"]], ":").values, out_type=tf.int32)
   sentence_num = tf.size(sentence_len)
   out_features = {"content": word_ids, "sentence_len": sentence_len, "sentence_num": sentence_num}
-  return out_features, features[label] + 2
+  target = features[label] + 2 if multi_class else tf.where(tf.equal(features[label], -2), tf.constant(0), tf.constant(1)) 
+  return out_features, target
 
 
 def input_fn(path_csv, path_vocab, label, params, shuffle_buffer_size):
@@ -39,7 +40,7 @@ def input_fn(path_csv, path_vocab, label, params, shuffle_buffer_size):
   # Load txt file, one example per line
   dataset = tf.data.TextLineDataset(path_csv)
   # Convert line into list of tokens, splitting by white space
-  dataset = dataset.skip(1).map(lambda line: parse_line(line, vocab, params.pad_word, label)) # skip the header
+  dataset = dataset.skip(1).map(lambda line: parse_line(line, vocab, params.pad_word, label, params.num_classes != 2)) # skip the header
   if shuffle_buffer_size > 0:
     dataset = dataset.shuffle(shuffle_buffer_size).repeat()
   # Create batches and pad the sentences of different length
